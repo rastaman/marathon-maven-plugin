@@ -32,6 +32,7 @@ import java.io.Reader;
 import java.io.Writer;
 
 import mesosphere.marathon.client.model.v2.App;
+import mesosphere.marathon.client.model.v2.Group;
 import mesosphere.marathon.client.utils.ModelUtils;
 
 import org.apache.maven.plugin.MojoExecutionException;
@@ -62,6 +63,34 @@ public class Utils {
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(new File(file)),
                 Charsets.UTF_8)) {
             ModelUtils.GSON.toJson(app, writer);
+            writer.flush();
+        } catch (FileNotFoundException e) {
+            throw new MojoExecutionException("Marathon config file cannot be written at "
+                    + file, e);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to write Marathon config file", e);
+        } catch (JsonIOException e) {
+            throw new MojoExecutionException("Failed to serialize Marathon config file", e);
+        }
+    }
+
+    public static final Group readGroup(String file) throws MojoExecutionException {
+        try (Reader reader = new InputStreamReader(new FileInputStream(new File(file)),
+                Charsets.UTF_8)) {
+            return ModelUtils.GSON.fromJson(reader, Group.class);
+        } catch (FileNotFoundException e) {
+            throw new MojoExecutionException("Marathon config file not found at " + file, e);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to read Marathon config file", e);
+        } catch (JsonSyntaxException e) {
+            throw new MojoExecutionException("Failed to parse Marathon config file", e);
+        }
+    }
+
+    public static final void writeGroup(Group group, String file) throws MojoExecutionException {
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(new File(file)),
+                Charsets.UTF_8)) {
+            ModelUtils.GSON.toJson(group, writer);
             writer.flush();
         } catch (FileNotFoundException e) {
             throw new MojoExecutionException("Marathon config file cannot be written at "

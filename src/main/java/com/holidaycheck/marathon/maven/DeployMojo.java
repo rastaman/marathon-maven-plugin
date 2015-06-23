@@ -22,9 +22,11 @@
 package com.holidaycheck.marathon.maven;
 
 import static com.holidaycheck.marathon.maven.Utils.readApp;
+import static com.holidaycheck.marathon.maven.Utils.readGroup;
 import mesosphere.marathon.client.Marathon;
 import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
+import mesosphere.marathon.client.model.v2.Group;
 import mesosphere.marathon.client.utils.MarathonException;
 
 import org.apache.maven.plugin.MojoExecutionException;
@@ -45,19 +47,38 @@ public class DeployMojo extends AbstractMarathonMojo {
     @Parameter(property = "marathonHost", required = true)
     private String marathonHost;
 
+    /**
+     * Flag which indicate if we are deploying an application (the default)
+     * or a group.
+     */
+    @Parameter(property = "group", required = false)
+    private boolean group;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         final Marathon marathon = MarathonClient.getInstance(marathonHost);
-        final App app = readApp(finalMarathonConfigFile);
-        getLog().info("deploying Marathon config for " + app.getId()
-                + " from " + finalMarathonConfigFile + " to " + marathonHost);
-        if (appExists(marathon, app.getId())) {
-            getLog().info(app.getId() + " already exists - will be updated");
-            updateApp(marathon, app);
+        if (!group) {
+            final App app = readApp(finalMarathonConfigFile);
+            getLog().info("deploying Marathon config for " + app.getId()
+                    + " from " + finalMarathonConfigFile + " to " + marathonHost);
+            if (appExists(marathon, app.getId())) {
+                getLog().info(app.getId() + " already exists - will be updated");
+                updateApp(marathon, app);
+            } else {
+                getLog().info(app.getId() + " does not exist yet - will be created");
+                createApp(marathon, app);
+            }
         } else {
-            getLog().info(app.getId() + " does not exist yet - will be created");
-            createApp(marathon, app);
+            final Group group = readGroup(finalMarathonConfigFile);
+            getLog().info("deploying Marathon config for group " + group.getId()
+                    + " from " + finalMarathonConfigFile + " to " + marathonHost);
+            if (groupExists(marathon, group.getId())) {
+                getLog().info(group.getId() + " group already exists - will be updated");
+                updateGroup(marathon, group);
+            } else {
+                getLog().info(group.getId() + " group does not exist yet - will be created");
+                createGroup(marathon, group);
+            }
         }
     }
 
@@ -95,4 +116,41 @@ public class DeployMojo extends AbstractMarathonMojo {
         }
     }
 
+    private boolean groupExists(Marathon marathon, String groupId) throws MojoExecutionException {
+        try {
+            marathon.getGroup(groupId);
+            return true;
+        } catch (MarathonException getAppException) {
+            if (getAppException.getMessage().contains("404")) {
+                return false;
+            } else {
+                throw new MojoExecutionException("Failed to check if an app " + groupId + "exists",
+                        getAppException);
+            }
+        } catch (Exception e) {
+            throw new MojoExecutionException("Failed to check if an app " + groupId + "exists", e);
+        }
+    }
+
+    private void updateGroup(Marathon marathon, Group appGroup) throws MojoExecutionException {
+        try {
+            for (Group g : appGroup.getGroups()) {
+                for (App a : g.getApps()) {
+                    marathon.updateApp(a.getId(), a, true);
+                }
+            }
+        } catch (Exception updateAppException) {
+            throw new MojoExecutionException("Failed to update Marathon config file at "
+                    + marathonHost, updateAppException);
+        }
+    }
+
+    private void createGroup(Marathon marathon, Group appGroup) throws MojoExecutionException {
+        try {
+            marathon.createGroup(appGroup);
+        } catch (Exception createAppException) {
+            throw new MojoExecutionException("Failed to push Marathon config file to "
+                    + marathonHost, createAppException);
+        }
+    }
 }
