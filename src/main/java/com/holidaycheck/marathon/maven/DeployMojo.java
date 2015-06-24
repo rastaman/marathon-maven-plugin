@@ -54,6 +54,13 @@ public class DeployMojo extends AbstractMarathonMojo {
     @Parameter(property = "group", required = false)
     private boolean group;
 
+    /**
+     * Flag which indicate if we must destroy the application or group before
+     * deploying.
+     */
+    @Parameter(property = "deleteBeforeDeploy", required = false)
+    private boolean deleteBeforeDeploy;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         final Marathon marathon = MarathonClient.getInstance(marathonHost);
@@ -62,7 +69,17 @@ public class DeployMojo extends AbstractMarathonMojo {
             getLog().info("deploying Marathon config for " + app.getId()
                     + " from " + finalMarathonConfigFile + " to " + marathonHost);
             if (appExists(marathon, app.getId())) {
-                getLog().info(app.getId() + " already exists - will be updated");
+                if ( deleteBeforeDeploy ) {
+                    try {
+                        marathon.deleteApp(app.getId());
+                        getLog().info(app.getId() + " application deleted");
+                    } catch (MarathonException e) {
+                        getLog().error("An error as occured while deleting application '"+app.getId()+"': " + e.getMessage(), e);
+                    }
+                }
+                else {
+                    getLog().info(app.getId() + " already exists - will be updated");
+                }
                 updateApp(marathon, app);
             } else {
                 getLog().info(app.getId() + " does not exist yet - will be created");
@@ -72,8 +89,18 @@ public class DeployMojo extends AbstractMarathonMojo {
             final Group group = readGroup(finalMarathonConfigFile);
             getLog().info("deploying Marathon config for group " + group.getId()
                     + " from " + finalMarathonConfigFile + " to " + marathonHost);
+            
             if (groupExists(marathon, group.getId())) {
-                getLog().info(group.getId() + " group already exists - will be updated");
+                if ( deleteBeforeDeploy ) {
+                    try {
+                        marathon.deleteGroup(group.getId());
+                        getLog().info(group.getId() + " group deleted");
+                    } catch (MarathonException e) {
+                        getLog().error("An error as occured while deleting group '"+group.getId()+"': " + e.getMessage(), e);
+                    }
+                } else {
+                    getLog().info(group.getId() + " group already exists - will be updated");
+                }
                 updateGroup(marathon, group);
             } else {
                 getLog().info(group.getId() + " group does not exist yet - will be created");
