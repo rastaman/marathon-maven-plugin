@@ -46,3 +46,58 @@ Add plugin configuration to your `pom.xml`:
 ```
 
 By default your template `marathon.json` should be in the root project directory.
+
+# Deploy an applications group
+
+To deploy an applications group, add a `group` element with the content `true` to your plugin configurarition :
+
+Notice that the process-config goal is skipped, as we do the filtering of the marathon json file in a previous phase
+with the maven-resources-plugin.
+
+```xml
+<plugin>
+    <groupId>com.holidaycheck</groupId>
+    <artifactId>marathon-maven-plugin</artifactId>
+    <version>0.0.2-SNAPSHOT</version>
+    <configuration>
+        <marathonHost>http://${mesos.host}:${mesos.port}</marathonHost>
+        <group>true</group>
+    </configuration>
+    <executions>
+        <execution>
+            <id>deploy</id>
+            <phase>deploy</phase>
+            <goals>
+                <goal>deploy</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+# Remove an older group or application from Marathon before deploying
+
+Use the `deleteBeforeDeploy` configuration element with a value of `true` do delete
+the application or group on the Marathon/Mesos cluster, if it exists, before deploying.
+
+```xml
+<plugin>
+    <groupId>com.holidaycheck</groupId>
+    <artifactId>marathon-maven-plugin</artifactId>
+    <version>0.0.2-SNAPSHOT</version>
+    <configuration>
+        <marathonHost>http://${mesos.host}:${mesos.port}</marathonHost>
+        <group>true</group>
+        <deleteBeforeDeploy>true</deleteBeforeDeploy>
+    </configuration>
+    <executions>
+        <execution>
+            <id>deploy</id>
+            <phase>deploy</phase>
+            <goals>
+                <goal>deploy</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
