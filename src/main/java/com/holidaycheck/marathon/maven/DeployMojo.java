@@ -68,7 +68,10 @@ public class DeployMojo extends AbstractMarathonMojo {
             final App app = readApp(finalMarathonConfigFile);
             getLog().info("deploying Marathon config for " + app.getId()
                     + " from " + finalMarathonConfigFile + " to " + marathonHost);
-            if (appExists(marathon, app.getId())) {
+            if (appExists(marathon, app.getId()) && !this.deleteBeforeDeploy ) {
+                getLog().info(app.getId() + " already exists - will be updated");
+                updateApp(marathon, app);
+            } else {
                 if ( deleteBeforeDeploy ) {
                     try {
                         marathon.deleteApp(app.getId());
@@ -77,11 +80,6 @@ public class DeployMojo extends AbstractMarathonMojo {
                         getLog().error("An error as occured while deleting application '"+app.getId()+"': " + e.getMessage(), e);
                     }
                 }
-                else {
-                    getLog().info(app.getId() + " already exists - will be updated");
-                }
-                updateApp(marathon, app);
-            } else {
                 getLog().info(app.getId() + " does not exist yet - will be created");
                 createApp(marathon, app);
             }
@@ -89,8 +87,10 @@ public class DeployMojo extends AbstractMarathonMojo {
             final Group group = readGroup(finalMarathonConfigFile);
             getLog().info("deploying Marathon config for group " + group.getId()
                     + " from " + finalMarathonConfigFile + " to " + marathonHost);
-            
-            if (groupExists(marathon, group.getId())) {
+            if (groupExists(marathon, group.getId()) && !this.deleteBeforeDeploy) {
+                getLog().info(group.getId() + " group already exists - will be updated");
+                updateGroup(marathon, group);
+            } else {
                 if ( deleteBeforeDeploy ) {
                     try {
                         marathon.deleteGroup(group.getId());
@@ -98,11 +98,7 @@ public class DeployMojo extends AbstractMarathonMojo {
                     } catch (MarathonException e) {
                         getLog().error("An error as occured while deleting group '"+group.getId()+"': " + e.getMessage(), e);
                     }
-                } else {
-                    getLog().info(group.getId() + " group already exists - will be updated");
                 }
-                updateGroup(marathon, group);
-            } else {
                 getLog().info(group.getId() + " group does not exist yet - will be created");
                 createGroup(marathon, group);
             }
