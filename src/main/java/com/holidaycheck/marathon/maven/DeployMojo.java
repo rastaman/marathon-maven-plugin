@@ -68,16 +68,17 @@ public class DeployMojo extends AbstractMarathonMojo {
             final App app = readApp(finalMarathonConfigFile);
             getLog().info("deploying Marathon config for " + app.getId()
                     + " from " + finalMarathonConfigFile + " to " + marathonHost);
-            if (appExists(marathon, app.getId()) && !this.deleteBeforeDeploy ) {
+            if (appExists(marathon, app.getId()) && !this.deleteBeforeDeploy) {
                 getLog().info(app.getId() + " already exists - will be updated");
                 updateApp(marathon, app);
             } else {
-                if ( deleteBeforeDeploy ) {
+                if (deleteBeforeDeploy) {
                     try {
                         marathon.deleteApp(app.getId());
                         getLog().info(app.getId() + " application deleted");
                     } catch (MarathonException e) {
-                        getLog().error("An error as occured while deleting application '"+app.getId()+"': " + e.getMessage(), e);
+                        getLog().error("An error as occured while deleting "
+                            + "application '" + app.getId() + "': " + e.getMessage(), e);
                     }
                 }
                 getLog().info(app.getId() + " does not exist yet - will be created");
@@ -91,12 +92,13 @@ public class DeployMojo extends AbstractMarathonMojo {
                 getLog().info(group.getId() + " group already exists - will be updated");
                 updateGroup(marathon, group);
             } else {
-                if ( deleteBeforeDeploy ) {
+                if (deleteBeforeDeploy) {
                     try {
                         marathon.deleteGroup(group.getId());
                         getLog().info(group.getId() + " group deleted");
                     } catch (MarathonException e) {
-                        getLog().error("An error as occured while deleting group '"+group.getId()+"': " + e.getMessage(), e);
+                        getLog().error("An error as occured while deleting "
+                            + "group '" + group.getId() + "': " + e.getMessage(), e);
                     }
                 }
                 getLog().info(group.getId() + " group does not exist yet - will be created");
