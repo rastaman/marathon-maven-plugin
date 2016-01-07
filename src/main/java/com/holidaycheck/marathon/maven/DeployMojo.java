@@ -23,6 +23,22 @@ package com.holidaycheck.marathon.maven;
 
 import static com.holidaycheck.marathon.maven.Utils.readApp;
 import static com.holidaycheck.marathon.maven.Utils.readGroup;
+
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import feign.Feign;
+import feign.RequestInterceptor;
+import feign.auth.BasicAuthRequestInterceptor;
+
 import mesosphere.marathon.client.Marathon;
 import mesosphere.marathon.client.MarathonClient;
 import mesosphere.marathon.client.model.v2.App;
@@ -60,10 +76,33 @@ public class DeployMojo extends AbstractMarathonMojo {
      */
     @Parameter(property = "deleteBeforeDeploy", required = false)
     private boolean deleteBeforeDeploy;
+
+    /**
+     * Don't check the certificate if using https.
+     */
+    @Parameter(property = "insecure", required = false)
+    private boolean insecure;
+    
+    @Parameter(property = "login", required = false)
+    private String login;
+    
+    @Parameter(property = "password", required = false)
+    private String password;
     
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        final Marathon marathon = MarathonClient.getInstance(marathonHost);
+        final Marathon marathon;
+        if (login == null && password == null) {
+            marathon = MarathonClient.getInstance(marathonHost);
+        } else {
+            Feign.Builder builder = new Feign.Builder();
+            RequestInterceptor authInterceptor = new BasicAuthRequestInterceptor(login, password);
+            builder.requestInterceptor(authInterceptor);
+            marathon = MarathonClient.getInstance(builder, marathonHost);
+        }
+        if (insecure) {
+            disableSslVerification();
+        }
         if (!group) {
             final App app = readApp(finalMarathonConfigFile);
             getLog().info("deploying Marathon config for " + app.getId()
@@ -160,6 +199,41 @@ public class DeployMojo extends AbstractMarathonMojo {
         } catch (Exception createAppException) {
             throw new MojoExecutionException("Failed to push Marathon config file to "
                     + marathonHost, createAppException);
+        }
+    }
+
+    private static void disableSslVerification() {
+        try {
+            // Create a trust manager that does not validate certificate chains
+            TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
+                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                    return new java.security.cert.X509Certificate[]{};
+                }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                }
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                }
+            }
+            };
+
+            // Install the all-trusting trust manager
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+            // Create all-trusting host name verifier
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+                public boolean verify(String hostname, SSLSession session) {
+                    return true;
+                }
+            };
+
+            // Install the all-trusting host verifier
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (KeyManagementException e) {
+            e.printStackTrace();
         }
     }
 }
